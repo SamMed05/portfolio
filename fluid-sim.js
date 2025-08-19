@@ -13,7 +13,8 @@
         offctx: null,
         prevMX: 0,
         prevMY: 0,
-    isPointerDown: false,
+        prevEventTime: 0,
+        isPointerDown: false,
         hasRaw: false,
         lastFluidTime: performance.now(),
         fluidConfig: {
@@ -98,8 +99,17 @@
         }
         const x = Math.floor(simXf);
         const y = Math.floor(simYf);
-    const dx = (mx - FluidSim.prevMX);
-    const dy = (my - FluidSim.prevMY);
+        // Normalize pointer delta to a 60Hz baseline so event rate doesn't create spikes
+        const nowEvt = performance.now();
+        const evtDt = Math.max(1, nowEvt - (FluidSim.prevEventTime || nowEvt)); // ms, avoid zero
+        FluidSim.prevEventTime = nowEvt;
+        const scaleTo60 = 16 / evtDt; // scale factor so deltas approximate 60Hz movement
+        let dx = (mx - FluidSim.prevMX) * scaleTo60;
+        let dy = (my - FluidSim.prevMY) * scaleTo60;
+        // Clamp extreme single-event jumps to avoid huge advection that reveals low-res grid
+        const maxMove = 48; // pixels per 60Hz-equivalent event (tuneable)
+        const mag = Math.hypot(dx, dy);
+        if (mag > maxMove) { dx *= maxMove / mag; dy *= maxMove / mag; }
         const r = 3;
         const [rr, gg, bb] = getActiveColorRgb();
         for (let j = -r; j <= r; j++) {
@@ -109,16 +119,20 @@
                 const k = yy * w + xx;
                 const fall = 1 - Math.min(1, Math.hypot(i, j) / (r + 0.001));
                 if (fall > 0) {
-                    const flow = (FluidSim.fluidConfig.flow / 100) * 0.18;
+                    // Compute flow and only reduce it for touch devices (mouse look is slightly different)
+                    let flow = (FluidSim.fluidConfig.flow / 100) * 0.18;
+                    const isTouchDevice = (navigator.maxTouchPoints || ('ontouchstart' in window)) > 0;
+                    if (isTouchDevice && FluidSim.isPointerDown && !FluidSim.hasRaw) flow *= 0.65;
                     FluidSim.fluidVx[k] += dx * flow * fall;
                     FluidSim.fluidVy[k] += dy * flow * fall;
                     const di = k * 4;
-                    const mix = 0.35 * fall;
+                    // Slightly stronger color mix and alpha add for more visible fluid on desktop
+                    const mix = 0.45 * fall;
                     const use = [rr, gg, bb];
                     FluidSim.fluidImg.data[di + 0] = Math.min(255, FluidSim.fluidImg.data[di + 0] * (1 - mix) + use[0] * mix);
                     FluidSim.fluidImg.data[di + 1] = Math.min(255, FluidSim.fluidImg.data[di + 1] * (1 - mix) + use[1] * mix);
                     FluidSim.fluidImg.data[di + 2] = Math.min(255, FluidSim.fluidImg.data[di + 2] * (1 - mix) + use[2] * mix);
-                    FluidSim.fluidImg.data[di + 3] = Math.min(255, FluidSim.fluidImg.data[di + 3] + Math.floor(34 * fall));
+                    FluidSim.fluidImg.data[di + 3] = Math.min(255, FluidSim.fluidImg.data[di + 3] + Math.floor(48 * fall));
                 }
             }
         }
@@ -126,10 +140,10 @@
     };
 
     FluidSim.fluidStep = function fluidStep() {
-    const fluidCanvas = document.getElementById('fluidCanvas');
-    const fctx = fluidCanvas ? fluidCanvas.getContext('2d') : null;
+        const fluidCanvas = document.getElementById('fluidCanvas');
+        const fctx = fluidCanvas ? fluidCanvas.getContext('2d') : null;
         if (!FluidSim.fluidRunning || !fctx) return;
-    // Only react to actual pointer movement; no implicit force on hold
+        // Only react to actual pointer movement; no implicit force on hold
         const now = performance.now();
         const dt = Math.min((now - FluidSim.lastFluidTime) / 1000, 0.05);
         FluidSim.lastFluidTime = now;
@@ -210,21 +224,21 @@
         FluidSim.fluidImg = next;
         FluidSim.fluidVx = vx2; FluidSim.fluidVy = vy2;
 
-    FluidSim.offctx.putImageData(FluidSim.fluidImg, 0, 0);
-    // Clear using device pixels but draw using CSS pixel coordinates (dpr transform is applied by script.js)
-    fctx.save();
-    fctx.setTransform(1, 0, 0, 1, 0, 0);
-    fctx.clearRect(0, 0, fluidCanvas.width, fluidCanvas.height);
-    fctx.restore();
-    fctx.imageSmoothingEnabled = true; fctx.imageSmoothingQuality = 'high';
-    const rect = fluidCanvas?.getBoundingClientRect();
-    const cssW = rect?.width || (window.visualViewport?.width ?? window.innerWidth);
-    const cssH = rect?.height || (window.visualViewport?.height ?? window.innerHeight);
-    // Preserve aspect ratio: scale to cover (match mapping above)
-    const scale = Math.max(cssW / w, cssH / h);
-    const dw = w * scale, dh = h * scale;
-    const drawDX = (cssW - dw) / 2, drawDY = (cssH - dh) / 2;
-    fctx.drawImage(FluidSim.offscreen, 0, 0, w, h, drawDX, drawDY, dw, dh);
+        FluidSim.offctx.putImageData(FluidSim.fluidImg, 0, 0);
+        // Clear using device pixels but draw using CSS pixel coordinates (dpr transform is applied by script.js)
+        fctx.save();
+        fctx.setTransform(1, 0, 0, 1, 0, 0);
+        fctx.clearRect(0, 0, fluidCanvas.width, fluidCanvas.height);
+        fctx.restore();
+        fctx.imageSmoothingEnabled = true; fctx.imageSmoothingQuality = 'high';
+        const rect = fluidCanvas?.getBoundingClientRect();
+        const cssW = rect?.width || (window.visualViewport?.width ?? window.innerWidth);
+        const cssH = rect?.height || (window.visualViewport?.height ?? window.innerHeight);
+        // Preserve aspect ratio: scale to cover (match mapping above)
+        const scale = Math.max(cssW / w, cssH / h);
+        const dw = w * scale, dh = h * scale;
+        const drawDX = (cssW - dw) / 2, drawDY = (cssH - dh) / 2;
+        fctx.drawImage(FluidSim.offscreen, 0, 0, w, h, drawDX, drawDY, dw, dh);
 
         FluidSim.fluidId = requestAnimationFrame(FluidSim.fluidStep);
     };
@@ -256,7 +270,7 @@
         if (document.body.classList.contains('bg-mode-fluid')) {
             FluidSim.prevMX = e.clientX;
             FluidSim.prevMY = e.clientY;
-        FluidSim.isPointerDown = true;
+            FluidSim.isPointerDown = true;
             FluidSim.addFluidForce(e.clientX, e.clientY);
         }
     }, { passive: true });
