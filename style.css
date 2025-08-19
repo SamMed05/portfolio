@@ -115,6 +115,11 @@ body {
   position: fixed;
   inset: 0;
   z-index: 0;
+  width: 100vw;
+  height: 100vh;
+  min-width: 100%;
+  min-height: 100%;
+  object-fit: cover;
 }
 
 #fluidCanvas {
@@ -123,20 +128,17 @@ body {
   z-index: 0; /* same layer as particles; we toggle visibility */
   display: none; /* hidden by default; shown when fluid mode via .bg-mode-fluid */
   pointer-events: none; /* don't block interactions */
-
   /* ensure it always fills the viewport and scales cleanly */
   width: 100vw;
   height: 100vh;
   min-width: 100%;
   min-height: 100%;
   object-fit: cover;
-  transform: translateZ(
-    0
-  ); /* promote to its own layer for smoother animations */
-  will-change: transform, opacity;
+  transform: translateZ(0); /* promote to its own layer for smoother animations */
+  /* will-change: transform, opacity; */
   /* respect device safe areas (notches) */
-  padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0)
-    env(safe-area-inset-bottom, 0) env(safe-area-inset-left, 0);
+  /* padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0)
+    env(safe-area-inset-bottom, 0) env(safe-area-inset-left, 0); */
 }
 
 /* show when fluid mode is active (keeps original toggle behavior) */

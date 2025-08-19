@@ -144,6 +144,12 @@ document.addEventListener("DOMContentLoaded", () => {
         target.classList.add("active");
         pauseParticles(true);
         drawOrbits(); // keep orbits visible behind
+        // push a history state so the browser back button returns to the hub (mobile-friendly)
+        try {
+            history.pushState({ sectionId: id }, "", `#${id}`);
+        } catch (e) {
+            // ignore if history API unavailable
+        }
         // lock cursor color to this section
         const secColor = getComputedStyle(target)
             .getPropertyValue("--primary")
@@ -155,6 +161,15 @@ document.addEventListener("DOMContentLoaded", () => {
         setTimeout(() => cursor.classList.remove("hide-circle"), 220);
     }
     function backToHub() {
+        // If there's a pushed section state, prefer letting the browser pop it so popstate handler runs.
+        if (history.state && history.state.sectionId) {
+            try {
+                history.back();
+                return; // wait for popstate to call backToHub (which will now run without history.state)
+            } catch (e) {
+                // fallback to immediate UI update
+            }
+        }
         universe.classList.remove("section-active");
         sections.forEach((s) => s.classList.remove("active"));
         // Resume particles only when particle mode is active
@@ -409,16 +424,18 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function resizeCanvas() {
         const dpr = Math.min(window.devicePixelRatio || 1, 2);
-        canvas.width = Math.floor(window.innerWidth * dpr);
-        canvas.height = Math.floor(window.innerHeight * dpr);
+        const vw = window.visualViewport?.width ?? window.innerWidth;
+        const vh = window.visualViewport?.height ?? window.innerHeight;
+        canvas.width = Math.floor(vw * dpr);
+        canvas.height = Math.floor(vh * dpr);
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         if (fluidCanvas && fctx) {
-            fluidCanvas.width = Math.floor(window.innerWidth * dpr);
-            fluidCanvas.height = Math.floor(window.innerHeight * dpr);
+            fluidCanvas.width = Math.floor(vw * dpr);
+            fluidCanvas.height = Math.floor(vh * dpr);
             fctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         }
-        orbitsCanvas.width = Math.floor(window.innerWidth * dpr);
-        orbitsCanvas.height = Math.floor(window.innerHeight * dpr);
+        orbitsCanvas.width = Math.floor(vw * dpr);
+        orbitsCanvas.height = Math.floor(vh * dpr);
         orbitsCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
     resizeCanvas();
@@ -441,6 +458,10 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     window.addEventListener("resize", onResizeLikeEvent);
     window.addEventListener("orientationchange", onResizeLikeEvent);
+    // iOS/Android virtual keyboard and dynamic viewport
+    if (window.visualViewport) {
+        visualViewport.addEventListener("resize", onResizeLikeEvent);
+    }
     // Listen for DPR changes (zoom) and re-run sizing
     (function watchDPR() {
         let last = window.devicePixelRatio || 1;
@@ -924,7 +945,17 @@ document.addEventListener("DOMContentLoaded", () => {
     document
         .querySelectorAll(".back-overlay")
         .forEach((el) => el.addEventListener("click", backToHub));
-    window.addEventListener("popstate", (e) => backToHub()); // if used with history later
+    window.addEventListener("popstate", (e) => {
+        // When user presses Back from a section, return to hub instead of leaving
+        if (universe.classList.contains("section-active")) {
+            // clear state but don't push a new one
+            universe.classList.remove("section-active");
+            sections.forEach((s) => s.classList.remove("active"));
+            if (document.body.classList.contains("bg-mode-particles"))
+                pauseParticles(false);
+            document.documentElement.style.removeProperty("--cursor-color");
+        }
+    });
     window.addEventListener("mouseup", (e) => {
         if (e.button === 3 || e.button === 4) backToHub();
     });
