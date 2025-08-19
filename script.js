@@ -215,8 +215,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function resizeTrailCanvas() {
         const dpr = Math.min(window.devicePixelRatio || 1, 2);
-        trailCanvas.width = Math.floor(window.innerWidth * dpr);
-        trailCanvas.height = Math.floor(window.innerHeight * dpr);
+        const vw = window.visualViewport?.width ?? window.innerWidth;
+        const vh = window.visualViewport?.height ?? window.innerHeight;
+        trailCanvas.width = Math.floor(vw * dpr);
+        trailCanvas.height = Math.floor(vh * dpr);
         trailCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
     resizeTrailCanvas();
@@ -439,22 +441,25 @@ document.addEventListener("DOMContentLoaded", () => {
         orbitsCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
     resizeCanvas();
+    let resizeTimer = null;
     function onResizeLikeEvent() {
-        resizeCanvas();
-        resizeTrailCanvas();
-        initParticles();
-        drawOrbits();
-        // If the fluid simulation module is loaded and running, ask it to re-setup.
-        if (window.FluidSim && window.FluidSim.fluidRunning) {
-            try {
-                window.FluidSim.setupFluid();
-            } catch (e) { }
-            // clear the trail to avoid misalignment after zoom/resize
-            tail.length = 0;
-        }
-        // keep cursor element in sync
-        cursor.style.left = mouseX + "px";
-        cursor.style.top = mouseY + "px";
+        if (resizeTimer) clearTimeout(resizeTimer);
+        // Debounce to avoid thrashing when mobile browser is animating UI bars
+        resizeTimer = setTimeout(() => {
+            resizeTimer = null;
+            resizeCanvas();
+            resizeTrailCanvas();
+            initParticles();
+            drawOrbits();
+            // Re-setup fluid only when in fluid mode AND no section is open (to avoid restarts while scrolling content)
+            const sectionOpen = universe.classList.contains("section-active");
+            if (window.FluidSim && window.FluidSim.fluidRunning && !sectionOpen) {
+                try { window.FluidSim.setupFluid(); } catch (e) { }
+                tail.length = 0; // clear trail after geometry changes
+            }
+            cursor.style.left = mouseX + "px";
+            cursor.style.top = mouseY + "px";
+        }, 120);
     }
     window.addEventListener("resize", onResizeLikeEvent);
     window.addEventListener("orientationchange", onResizeLikeEvent);
@@ -765,7 +770,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const viewportH = window.innerHeight;
 
         // Snapshot geometry at start of frame (previously rendered positions)
-        const items = bubbles.map((b, idx) => {
+    const items = bubbles.map((b, idx) => {
             const s = bubbleState.get(b);
             const r = b.getBoundingClientRect();
             const cx = r.left + r.width / 2;
@@ -787,7 +792,12 @@ document.addEventListener("DOMContentLoaded", () => {
             : null;
 
         // 1) Integrate motion for each bubble
+        const sectionOpen = universe.classList.contains("section-active");
         items.forEach(({ s }) => {
+            if (sectionOpen) {
+                // Freeze motion while a section is open
+                s.vx = 0; s.vy = 0; return;
+            }
             if (s.dragging) {
                 const followK = 28;
                 const alpha = 1 - Math.exp(-followK * dt);
@@ -954,6 +964,8 @@ document.addEventListener("DOMContentLoaded", () => {
             if (document.body.classList.contains("bg-mode-particles"))
                 pauseParticles(false);
             document.documentElement.style.removeProperty("--cursor-color");
+            // resume wobble/orbits after closing
+            drawOrbits();
         }
     });
     window.addEventListener("mouseup", (e) => {

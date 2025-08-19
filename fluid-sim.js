@@ -13,6 +13,8 @@
         offctx: null,
         prevMX: 0,
         prevMY: 0,
+    isPointerDown: false,
+        hasRaw: false,
         lastFluidTime: performance.now(),
         fluidConfig: {
             detail: Number(localStorage.getItem('fluid-detail') ?? 3),
@@ -76,13 +78,28 @@
     FluidSim.addFluidForce = function addFluidForce(mx, my) {
         if (!FluidSim.fluidVx || !FluidSim.fluidVy) return;
         const fluidCanvas = document.getElementById('fluidCanvas');
-        const cssW = (fluidCanvas && fluidCanvas.clientWidth) || (window.visualViewport?.width ?? window.innerWidth);
-        const cssH = (fluidCanvas && fluidCanvas.clientHeight) || (window.visualViewport?.height ?? window.innerHeight);
+        const rect = fluidCanvas?.getBoundingClientRect();
+        const cssW = rect?.width || (window.visualViewport?.width ?? window.innerWidth);
+        const cssH = rect?.height || (window.visualViewport?.height ?? window.innerHeight);
+        const offX = rect?.left || 0;
+        const offY = rect?.top || 0;
         const w = FluidSim.fluidCols, h = FluidSim.fluidRows;
-        const x = Math.floor(mx / Math.max(1, cssW) * w);
-        const y = Math.floor(my / Math.max(1, cssH) * h);
-        const dx = (mx - FluidSim.prevMX);
-        const dy = (my - FluidSim.prevMY);
+        const localX = Math.min(Math.max(0, mx - offX), Math.max(1, cssW));
+        const localY = Math.min(Math.max(0, my - offY), Math.max(1, cssH));
+        // Use the same cover scaling as render and invert it to map to sim space
+        const scale = Math.max(cssW / w, cssH / h);
+        const drawDX = (cssW - w * scale) / 2;
+        const drawDY = (cssH - h * scale) / 2;
+        const simXf = (localX - drawDX) / scale;
+        const simYf = (localY - drawDY) / scale;
+        if (simXf < 0 || simYf < 0 || simXf >= w || simYf >= h) {
+            FluidSim.prevMX = mx; FluidSim.prevMY = my;
+            return; // outside drawn area (cropped by cover)
+        }
+        const x = Math.floor(simXf);
+        const y = Math.floor(simYf);
+    const dx = (mx - FluidSim.prevMX);
+    const dy = (my - FluidSim.prevMY);
         const r = 3;
         const [rr, gg, bb] = getActiveColorRgb();
         for (let j = -r; j <= r; j++) {
@@ -112,6 +129,7 @@
     const fluidCanvas = document.getElementById('fluidCanvas');
     const fctx = fluidCanvas ? fluidCanvas.getContext('2d') : null;
         if (!FluidSim.fluidRunning || !fctx) return;
+    // Only react to actual pointer movement; no implicit force on hold
         const now = performance.now();
         const dt = Math.min((now - FluidSim.lastFluidTime) / 1000, 0.05);
         FluidSim.lastFluidTime = now;
@@ -199,13 +217,14 @@
     fctx.clearRect(0, 0, fluidCanvas.width, fluidCanvas.height);
     fctx.restore();
     fctx.imageSmoothingEnabled = true; fctx.imageSmoothingQuality = 'high';
-    const cssW = (fluidCanvas && fluidCanvas.clientWidth) || (window.visualViewport?.width ?? window.innerWidth);
-    const cssH = (fluidCanvas && fluidCanvas.clientHeight) || (window.visualViewport?.height ?? window.innerHeight);
-    // Preserve aspect ratio: scale to cover
+    const rect = fluidCanvas?.getBoundingClientRect();
+    const cssW = rect?.width || (window.visualViewport?.width ?? window.innerWidth);
+    const cssH = rect?.height || (window.visualViewport?.height ?? window.innerHeight);
+    // Preserve aspect ratio: scale to cover (match mapping above)
     const scale = Math.max(cssW / w, cssH / h);
     const dw = w * scale, dh = h * scale;
-    const dx = (cssW - dw) / 2, dy = (cssH - dh) / 2;
-    fctx.drawImage(FluidSim.offscreen, 0, 0, w, h, dx, dy, dw, dh);
+    const drawDX = (cssW - dw) / 2, drawDY = (cssH - dh) / 2;
+    fctx.drawImage(FluidSim.offscreen, 0, 0, w, h, drawDX, drawDY, dw, dh);
 
         FluidSim.fluidId = requestAnimationFrame(FluidSim.fluidStep);
     };
@@ -237,14 +256,26 @@
         if (document.body.classList.contains('bg-mode-fluid')) {
             FluidSim.prevMX = e.clientX;
             FluidSim.prevMY = e.clientY;
+        FluidSim.isPointerDown = true;
             FluidSim.addFluidForce(e.clientX, e.clientY);
         }
     }, { passive: true });
     document.addEventListener('pointermove', (e) => {
-        if (document.body.classList.contains('bg-mode-fluid')) {
+        if (document.body.classList.contains('bg-mode-fluid') && !FluidSim.hasRaw) {
             FluidSim.addFluidForce(e.clientX, e.clientY);
         }
     }, { passive: true });
+    // Higher-frequency updates on supporting browsers (Android/Chromium)
+    document.addEventListener('pointerrawupdate', (e) => {
+        if (document.body.classList.contains('bg-mode-fluid')) {
+            FluidSim.hasRaw = true;
+            FluidSim.addFluidForce(e.clientX, e.clientY);
+        }
+    }, { passive: true });
+    const stopHold = () => { FluidSim.isPointerDown = false; };
+    document.addEventListener('pointerup', stopHold, { passive: true });
+    document.addEventListener('pointercancel', stopHold, { passive: true });
+    document.addEventListener('pointerleave', stopHold, { passive: true });
 
     // Expose API
     window.FluidSim = FluidSim;
