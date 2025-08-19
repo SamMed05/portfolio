@@ -93,13 +93,50 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
     // Persisted configs for particles (fluid config moved to `fluid-sim.js`)
-    const particlesConfig = {
-        density: Number(localStorage.getItem("particles-density") ?? 100), // 50..150
-        speed: Number(localStorage.getItem("particles-speed") ?? 100), // 50..150
-        link: Number(localStorage.getItem("particles-link") ?? 120), // 0..150
-        mouseRadius: Number(localStorage.getItem("particles-mouse-radius") ?? 160), // 40..320
-        mouseForce: Number(localStorage.getItem("particles-mouse-force") ?? 100), // 50..200 (as percentage)
+    const particlesDefaults = {
+        density: 100, // 50..150
+        speed: 100, // 50..150
+        link: 100, // 0..150
+        mouseRadius: 160, // 40..320
+        mouseForce: 100, // percentage 50..200
     };
+
+    const particlesStorageKeys = {
+        density: "particles-density",
+        speed: "particles-speed",
+        link: "particles-link",
+        mouseRadius: "particles-mouse-radius",
+        mouseForce: "particles-mouse-force",
+    };
+
+    function readParticlesConfig() {
+        return {
+            density: Number(localStorage.getItem(particlesStorageKeys.density) ?? particlesDefaults.density),
+            speed: Number(localStorage.getItem(particlesStorageKeys.speed) ?? particlesDefaults.speed),
+            link: Number(localStorage.getItem(particlesStorageKeys.link) ?? particlesDefaults.link),
+            mouseRadius: Number(localStorage.getItem(particlesStorageKeys.mouseRadius) ?? particlesDefaults.mouseRadius),
+            mouseForce: Number(localStorage.getItem(particlesStorageKeys.mouseForce) ?? particlesDefaults.mouseForce),
+        };
+    }
+
+    function saveParticlesConfig(cfg) {
+        localStorage.setItem(particlesStorageKeys.density, String(cfg.density));
+        localStorage.setItem(particlesStorageKeys.speed, String(cfg.speed));
+        localStorage.setItem(particlesStorageKeys.link, String(cfg.link));
+        localStorage.setItem(particlesStorageKeys.mouseRadius, String(cfg.mouseRadius));
+        localStorage.setItem(particlesStorageKeys.mouseForce, String(cfg.mouseForce));
+    }
+
+    function resetParticlesConfig(cfg) {
+        cfg.density = particlesDefaults.density;
+        cfg.speed = particlesDefaults.speed;
+        cfg.link = particlesDefaults.link;
+        cfg.mouseRadius = particlesDefaults.mouseRadius;
+        cfg.mouseForce = particlesDefaults.mouseForce;
+        saveParticlesConfig(cfg);
+    }
+
+    const particlesConfig = readParticlesConfig();
 
     const savedBg = localStorage.getItem("bg-mode");
     setBgMode(savedBg || "fluid");
@@ -770,7 +807,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const viewportH = window.innerHeight;
 
         // Snapshot geometry at start of frame (previously rendered positions)
-    const items = bubbles.map((b, idx) => {
+        const items = bubbles.map((b, idx) => {
             const s = bubbleState.get(b);
             const r = b.getBoundingClientRect();
             const cx = r.left + r.width / 2;
@@ -1189,16 +1226,7 @@ document.addEventListener("DOMContentLoaded", () => {
             if (elFlow) elFlow.value = "50";
             window.FluidSim.setupFluid?.();
             restartFluidIfActive(true);
-            particlesConfig.density = 100;
-            particlesConfig.speed = 100;
-            particlesConfig.link = 120;
-            particlesConfig.mouseRadius = 160;
-            particlesConfig.mouseForce = 100;
-            localStorage.setItem("particles-density", "100");
-            localStorage.setItem("particles-speed", "100");
-            localStorage.setItem("particles-link", "120");
-            localStorage.setItem("particles-mouse-radius", "160");
-            localStorage.setItem("particles-mouse-force", "100");
+            resetParticlesConfig(particlesConfig);
             if (typeof pDensity !== "undefined" && pDensity)
                 pDensity.value = String(particlesConfig.density);
             if (typeof pSpeed !== "undefined" && pSpeed)
@@ -1226,16 +1254,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (elFlow) elFlow.value = localStorage.getItem("fluid-flow") ?? "50";
         // Provide Reset fallback to at least reset particle settings when fluid sim isn't present
         elReset?.addEventListener("click", () => {
-            particlesConfig.density = 100;
-            particlesConfig.speed = 100;
-            particlesConfig.link = 120;
-            particlesConfig.mouseRadius = 160;
-            particlesConfig.mouseForce = 100;
-            localStorage.setItem("particles-density", "100");
-            localStorage.setItem("particles-speed", "100");
-            localStorage.setItem("particles-link", "120");
-            localStorage.setItem("particles-mouse-radius", "160");
-            localStorage.setItem("particles-mouse-force", "100");
+            resetParticlesConfig(particlesConfig);
             if (typeof pDensity !== "undefined" && pDensity)
                 pDensity.value = String(particlesConfig.density);
             if (typeof pSpeed !== "undefined" && pSpeed)
@@ -1269,18 +1288,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function applyParticlesSettings(reseed = false) {
         // persist
-        localStorage.setItem("particles-density", String(particlesConfig.density));
-        localStorage.setItem("particles-speed", String(particlesConfig.speed));
-        localStorage.setItem("particles-link", String(particlesConfig.link));
-        // persist new mouse opts too
-        localStorage.setItem(
-            "particles-mouse-radius",
-            String(particlesConfig.mouseRadius)
-        );
-        localStorage.setItem(
-            "particles-mouse-force",
-            String(particlesConfig.mouseForce)
-        );
+        saveParticlesConfig(particlesConfig);
         // if in particles mode, re-init and ensure animation running
         if (document.body.classList.contains("bg-mode-particles")) {
             if (reseed) initParticles();
