@@ -573,6 +573,7 @@ body {
   .intro-top, .intro-banner {
     position: fixed; /* ensure they stay attached to viewport */
     z-index: 30;
+    user-select: none; /* disable selection */
   }
 }
 .content-section.active {

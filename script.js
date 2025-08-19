@@ -139,7 +139,12 @@ document.addEventListener("DOMContentLoaded", () => {
     const particlesConfig = readParticlesConfig();
 
     const savedBg = localStorage.getItem("bg-mode");
-    setBgMode(savedBg || "fluid");
+    // If the user hasn't chosen a background, prefer particles on mobile/touch devices.
+    // Use coarse pointer media query or a simple mobile UA sniff as a fallback.
+    const prefersCoarse = typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches;
+    const uaIsMobile = typeof navigator !== "undefined" && /Mobi|Android|iPhone|iPad|iPod|Windows Phone/i.test(navigator.userAgent);
+    const isMobileDevice = prefersCoarse || uaIsMobile;
+    setBgMode(savedBg || (isMobileDevice ? "particles" : "fluid"));
     updateBgIcon();
     bgToggle?.addEventListener("click", () => {
         const next = document.body.classList.contains("bg-mode-fluid")
