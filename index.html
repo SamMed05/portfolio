@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0f172a" />
+  <title>Samuel | Portfolio</title>
+  <!-- Inter font -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+  <!-- Font Awesome for Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+</head>
+
+<body>
+  <!-- Background particles canvas (behind everything) -->
+  <canvas id="particleCanvas" aria-hidden="true"></canvas>
+  <!-- Fluid simulation canvas (alternative background) -->
+  <canvas id="fluidCanvas" aria-hidden="true"></canvas>
+  <!-- Orbits connecting lines canvas (behind UI, above particles) -->
+  <canvas id="orbitsCanvas" aria-hidden="true"></canvas>
+
+  <!-- Fading light trail canvas (above content, below cursor) -->
+  <canvas id="trailCanvas" aria-hidden="true"></canvas>
+  <div id="custom-cursor" aria-hidden="true"></div>
+
+  <!-- Theme toggle -->
+  <button id="theme-toggle" class="theme-toggle" aria-label="Toggle theme" title="Toggle theme">
+    <i class="fa-solid fa-sun" id="theme-icon"></i>
+  </button>
+  <!-- Background toggle (particles ↔ fluid) -->
+  <button id="bg-toggle" class="theme-toggle bg-toggle" aria-label="Fluid background" title="Fluid background">
+    <i class="fa-solid fa-water" id="bg-icon"></i>
+  </button>
+  <!-- Settings button (opens popover) -->
+  <button id="bg-settings" class="theme-toggle settings-toggle" aria-label="Background settings"
+    title="Background settings">
+    <i class="fa-solid fa-gear" id="settings-icon"></i>
+  </button>
+  <!-- Settings popover -->
+  <div id="settings-popover" class="settings-popover" role="dialog" aria-label="Background settings" aria-hidden="true">
+    <!-- Fluid settings -->
+    <div class="group" data-for="fluid">
+      <div class="row">
+        <label for="fluid-detail">Detail</label><input type="range" id="fluid-detail" min="1" max="4" step="1"
+          value="3" />
+      </div>
+      <div class="row">
+        <label for="fluid-inertia">Inertia</label><input type="range" id="fluid-inertia" min="0" max="100" value="70" />
+      </div>
+      <div class="row">
+        <label for="fluid-swirl">Swirl</label><input type="range" id="fluid-swirl" min="0" max="100" value="60" />
+      </div>
+      <div class="row">
+        <label for="fluid-flow">Flow</label><input type="range" id="fluid-flow" min="0" max="100" value="50" />
+      </div>
+    </div>
+    <!-- Particles settings -->
+    <div class="group" data-for="particles">
+      <div class="row">
+        <label for="particles-density">Density</label><input type="range" id="particles-density" min="50" max="150"
+          value="100" />
+      </div>
+      <div class="row">
+        <label for="particles-speed">Speed</label><input type="range" id="particles-speed" min="50" max="150"
+          value="100" />
+      </div>
+      <div class="row">
+        <label for="particles-link">Links</label><input type="range" id="particles-link" min="0" max="150"
+          value="100" />
+      </div>
+      <div class="row">
+        <label for="particles-mouse-radius">Mouse radius</label><input type="range" id="particles-mouse-radius" min="40"
+          max="320" value="160" />
+      </div>
+      <div class="row">
+        <label for="particles-mouse-force">Mouse force</label><input type="range" id="particles-mouse-force" min="50"
+          max="200" value="100" />
+      </div>
+    </div>
+    <div class="row actions">
+      <button id="settings-reset" class="mini-btn" type="button">
+        Reset
+      </button>
+    </div>
+  </div>
+
+  <div id="universe" role="main">
+    <!-- ============== NAVIGATION HUB ============== -->
+    <div class="nav-hub" aria-label="Main navigation">
+      <div class="intro-top" aria-hidden="true">
+        <strong>Welcome :)</strong>
+      </div>
+      <div class="central-logo" title="Open a section">
+        <img src="assets/logo.png" alt="Logo" />
+      </div>
+      <div class="intro-banner" aria-hidden="true">
+        <p>
+          I'm Samuel and I <i class="fa-solid fa-heart" id=""></i> to create.<br />What are you curious about today?
+        </p>
+      </div>
+
+      <!-- Five bubbles around the hub -->
+      <button class="nav-bubble" style="--i: 0" data-target="projects" aria-label="Projects" data-color="#60a5fa">
+        <span class="orb">
+          <div class="nav-bubble-content">
+            <i class="fas fa-code"></i>
+            <span>Projects</span>
+          </div>
+        </span>
+      </button>
+      <button class="nav-bubble" style="--i: 1" data-target="art" aria-label="Art & Illustrations" data-color="#f472b6">
+        <span class="orb">
+          <div class="nav-bubble-content">
+            <i class="fas fa-paint-brush"></i>
+            <span>Art</span>
+          </div>
+        </span>
+      </button>
+      <button class="nav-bubble" style="--i: 2" data-target="learning" aria-label="Learning Resources"
+        data-color="#34d399">
+        <span class="orb">
+          <div class="nav-bubble-content">
+            <i class="fas fa-graduation-cap"></i>
+            <span>Learn</span>
+          </div>
+        </span>
+      </button>
+      <button class="nav-bubble" style="--i: 3" data-target="writing" aria-label="Writing & Blog" data-color="#f59e0b">
+        <span class="orb">
+          <div class="nav-bubble-content">
+            <i class="fas fa-pen-nib"></i>
+            <span>Writing</span>
+          </div>
+        </span>
+      </button>
+      <button class="nav-bubble" style="--i: 4" data-target="music" aria-label="Music & Playlists" data-color="#a78bfa">
+        <span class="orb">
+          <div class="nav-bubble-content">
+            <i class="fas fa-music"></i>
+            <span>Music</span>
+          </div>
+        </span>
+      </button>
+    </div>
+
+    <!-- ============== CONTENT SECTIONS ============== -->
+    <section id="projects" class="content-section" aria-labelledby="projects-title">
+      <button class="back-btn" aria-label="Back to hub">
+        <i class="fas fa-arrow-left"></i> Back
+      </button>
+      <div class="back-overlay" title="Back"></div>
+      <button class="back-btn-mobile" aria-label="Close section" title="Close">
+        <i class="fas fa-times"></i>
+      </button>
+      <h1 id="projects-title">Coding Projects</h1>
+      <p>
+        Showcase of my coding projects: web apps, tools, and experiments.
+        Lorem ipsum dolor sit amet, consectetur adipiscing elit. Praesent ut
+        purus non massa iaculis gravida.
+      </p>
+      <div class="gallery">
+        <figure class="gallery-item">
+          <img src="https://placehold.co/400x260/111/fff?text=Project+One" alt="Project One placeholder" />
+          <figcaption>Project One — Lorem ipsum dolor sit amet.</figcaption>
+        </figure>
+        <figure class="gallery-item">
+          <img src="https://placehold.co/400x260/1d4ed8/fff?text=Project+Two" alt="Project Two placeholder" />
+          <figcaption>Project Two — Consectetur adipiscing elit.</figcaption>
+        </figure>
+        <figure class="gallery-item">
+          <img src="https://placehold.co/400x260/0ea5e9/fff?text=Project+Three" alt="Project Three placeholder" />
+          <figcaption>Project Three — Sed do eiusmod tempor.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section id="art" class="content-section" aria-labelledby="art-title">
+      <button class="back-btn" aria-label="Back to hub">
+        <i class="fas fa-arrow-left"></i> Back
+      </button>
+      <div class="back-overlay" title="Back"></div>
+      <button class="back-btn-mobile" aria-label="Close section" title="Close">
+        <i class="fas fa-times"></i>
+      </button>
+      <h1 id="art-title">Art & Illustrations</h1>
+      <p>
+        Explorations in digital and traditional mediums. Lorem ipsum dolor sit
+        amet, consectetur adipiscing elit.
+      </p>
+      <div class="masonry">
+        <img src="https://placehold.co/320x420/f43f5e/fff?text=Art+1" alt="Art 1 placeholder" />
+        <img src="https://placehold.co/420x280/22c55e/fff?text=Art+2" alt="Art 2 placeholder" />
+        <img src="https://placehold.co/360x360/a855f7/fff?text=Art+3" alt="Art 3 placeholder" />
+        <img src="https://placehold.co/280x420/eab308/111?text=Art+4" alt="Art 4 placeholder" />
+      </div>
+    </section>
+
+    <section id="learning" class="content-section" aria-labelledby="learning-title">
+      <button class="back-btn" aria-label="Back to hub">
+        <i class="fas fa-arrow-left"></i> Back
+      </button>
+      <div class="back-overlay" title="Back"></div>
+      <button class="back-btn-mobile" aria-label="Close section" title="Close">
+        <i class="fas fa-times"></i>
+      </button>
+      <h1 id="learning-title">Learning Resources</h1>
+      <p>
+        Notes, links, and other useful resources. Lorem ipsum dolor sit amet, consectetur
+        adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore
+        magna aliqua.
+      </p>
+      <ul class="cards">
+        <li class="card">
+          <img src="https://placehold.co/240x160/10b981/fff?text=Resource+1" alt="Resource 1 placeholder" />
+          <h3>Lorem ipsum dolor sit amet</h3>
+          <p>Lorem ipsum dolor sit amet, consectetur.</p>
+        </li>
+        <li class="card">
+          <img src="https://placehold.co/240x160/2563eb/fff?text=Resource+2" alt="Resource 2 placeholder" />
+          <h3>Lorem ipsum dolor sit amet</h3>
+          <p>Sed do eiusmod tempor incididunt.</p>
+        </li>
+        <li class="card">
+          <img src="https://placehold.co/240x160/9333ea/fff?text=Resource+3" alt="Resource 3 placeholder" />
+          <h3>Lorem ipsum dolor sit amet</h3>
+          <p>Ut enim ad minim veniam.</p>
+        </li>
+      </ul>
+    </section>
+
+    <section id="writing" class="content-section" aria-labelledby="writing-title">
+      <button class="back-btn" aria-label="Back to hub">
+        <i class="fas fa-arrow-left"></i> Back
+      </button>
+      <div class="back-overlay" title="Back"></div>
+      <button class="back-btn-mobile" aria-label="Close section" title="Close">
+        <i class="fas fa-times"></i>
+      </button>
+      <h1 id="writing-title">Writing & Blog</h1>
+      <p>
+        Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do
+        eiusmod tempor incididunt ut labore et dolore magna aliqua.
+      </p>
+      <div class="posts">
+        <article class="post">
+          <img src="https://placehold.co/560x280/0ea5e9/111?text=Post+Cover" alt="Blog post placeholder" />
+          <h3>Lorem ipsum dolor sit amet</h3>
+          <p>
+            Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla
+            facilisi.
+          </p>
+        </article>
+        <article class="post">
+          <img src="https://placehold.co/560x280/f97316/111?text=Post+Cover" alt="Blog post placeholder" />
+          <h3>Lorem ipsum dolor sit amet</h3>
+          <p>
+            Vivamus sagittis lacus vel augue laoreet rutrum faucibus dolor
+            auctor.
+          </p>
+        </article>
+      </div>
+    </section>
+
+    <section id="music" class="content-section" aria-labelledby="music-title">
+      <button class="back-btn" aria-label="Back to hub">
+        <i class="fas fa-arrow-left"></i> Back
+      </button>
+      <div class="back-overlay" title="Back"></div>
+      <button class="back-btn-mobile" aria-label="Close section" title="Close">
+        <i class="fas fa-times"></i>
+      </button>
+      <h1 id="music-title">Music & Playlists</h1>
+      <p>Production tracks and curated playlists of my favourite music.</p>
+      <div class="playlist-grid">
+        <div class="playlist">
+          <img src="https://placehold.co/300x300/ef4444/fff?text=Playlist+1" alt="Playlist placeholder" />
+          <h3>Lorem ipsum dolor sit amet</h3>
+        </div>
+        <div class="playlist">
+          <img src="https://placehold.co/300x300/14b8a6/fff?text=Playlist+2" alt="Playlist placeholder" />
+          <h3>Lorem ipsum dolor sit amet</h3>
+        </div>
+        <div class="playlist">
+          <img src="https://placehold.co/300x300/22c55e/fff?text=Playlist+3" alt="Playlist placeholder" />
+          <h3>Lorem ipsum dolor sit amet</h3>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <noscript>
+    <style>
+      #universe {
+        display: block;
+      }
+
+      .content-section {
+        display: none;
+      }
+    </style>
+    JavaScript is required for animations and navigation.
+  </noscript>
+
+  <!-- Floating footer (appears only while scrolling; fixed so it doesn't affect layout) -->
+  <footer id="page-footer" aria-hidden="true">
+    <div class="footer-inner">
+      <span>© Samuel Mediani</span>
+      <a href="https://samdev.netlify.app/">Old website</a>
+    </div>
+  </footer>
+
+  <script src="fluid-sim.js"></script>
+  <script src="script.js"></script>
+</body>
+
+</html>

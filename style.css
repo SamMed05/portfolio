@@ -1,0 +1,1038 @@
+/* ============== THEME ============== */
+:root {
+  --bubble-count: 5;
+  --hub-radius: clamp(160px, 28vw, 320px);
+  --bubble-size: clamp(100px, 13vw, 150px);
+  /* --radius-logo: clamp(96px, 14vw, 140px); */
+  --radius-logo: clamp(120px, 18vw, 200px); /* increased center bubble size */
+  --bg: #0f172a; /* slate-900 */
+  --bg-soft: #111827; /* gray-900 */
+  --fg: #e5e7eb; /* gray-200 */
+  --muted: #a1a1aa; /* zinc-400 */
+  --primary: #60a5fa; /* blue-400 */
+  --glow: rgba(96, 165, 250, 0.35);
+  --card: #111827;
+  /* opacity of section background tint (mix with transparent). Lower value = more visible */
+  --section-tint-alpha: 64%;
+}
+
+body.light {
+  --bg: #f8fafc; /* slate-50 */
+  --bg-soft: #ffffff;
+  --fg: #0f172a; /* slate-900 */
+  --muted: #475569; /* slate-600 */
+  --primary: #2563eb; /* blue-600 */
+  --glow: rgba(37, 99, 235, 0.25);
+  --card: #ffffff;
+  /* light mode: keep visible but more transparent than before */
+  --section-tint-alpha: 46%;
+}
+
+/* Custom properties for smooth multi-point gradient animation (circles) */
+@property --x0 {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 50%;
+}
+@property --y0 {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 60%;
+}
+@property --r0 {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 30%;
+}
+
+@property --x1 {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 26%;
+}
+@property --y1 {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 22%;
+}
+@property --r1 {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 14%;
+}
+
+@property --x2 {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 82%;
+}
+@property --y2 {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 30%;
+}
+@property --r2 {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 12%;
+}
+
+@property --x3 {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 30%;
+}
+@property --y3 {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 84%;
+}
+@property --r3 {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 12%;
+}
+
+/* ============== BASE ============== */
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  height: 100%;
+}
+body {
+  margin: 0;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto,
+    Ubuntu, Cantarell, Noto Sans, sans-serif, Apple Color Emoji, Segoe UI Emoji;
+  background: var(--bg);
+  color: var(--fg);
+  overflow: hidden;
+  cursor: none; /* hide native cursor */
+}
+
+#particleCanvas {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+}
+
+#fluidCanvas {
+  position: fixed;
+  inset: 0;
+  z-index: 0; /* same layer as particles; we toggle visibility */
+  display: none; /* hidden by default; shown when fluid mode via .bg-mode-fluid */
+  pointer-events: none; /* don't block interactions */
+
+  /* ensure it always fills the viewport and scales cleanly */
+  width: 100vw;
+  height: 100vh;
+  min-width: 100%;
+  min-height: 100%;
+  object-fit: cover;
+  transform: translateZ(
+    0
+  ); /* promote to its own layer for smoother animations */
+  will-change: transform, opacity;
+  /* respect device safe areas (notches) */
+  padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0)
+    env(safe-area-inset-bottom, 0) env(safe-area-inset-left, 0);
+}
+
+/* show when fluid mode is active (keeps original toggle behavior) */
+.bg-mode-fluid #fluidCanvas {
+  display: block;
+}
+
+/* hide on small screens or touch devices for performance/usability */
+/* @media (max-width: 500px), (pointer: coarse) {
+  #fluidCanvas {
+    display: none !important;
+  }
+} */
+
+#custom-cursor {
+  position: fixed;
+  width: 25px;
+  height: 25px;
+  border: 2px solid var(--cursor-color, var(--primary));
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 9999;
+  transition: width 0.25s ease, height 0.25s ease, background 0.25s ease,
+    border-color 0.25s ease, transform 0.08s ease;
+  backdrop-filter: blur(2px);
+}
+
+#trailCanvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 9998;
+  /* ensure it scales with viewport */
+  object-fit: cover;
+}
+
+/* Hide trail on small screens or touch devices */
+@media (max-width: 500px), (pointer: coarse) {
+  #trailCanvas {
+    display: none;
+  }
+}
+.cursor-hover {
+  width: 35px !important;
+  height: 35px !important;
+  background: var(--glow);
+  border-color: transparent;
+}
+/* Hide circle when exit X state is active */
+#custom-cursor.hide-circle {
+  width: 0 !important;
+  height: 0 !important;
+  border-width: 0 !important;
+  background: transparent !important;
+}
+
+/* ============== UNIVERSE (CENTERING) ============== */
+#universe {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  display: grid;
+  place-items: center; /* ensures true centering */
+  transition: transform 0.8s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+}
+
+/* ============== NAVIGATION HUB ============== */
+.nav-hub {
+  position: relative; /* stays centered by grid parent */
+  width: 1px;
+  height: 1px;
+  opacity: 1;
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+.central-logo {
+  position: absolute;
+  width: var(--radius-logo);
+  height: var(--radius-logo);
+  border-radius: 50%;
+  background: radial-gradient(
+      120% 120% at 30% 30%,
+      var(--bg-soft),
+      transparent 70%
+    ),
+    var(--bg-soft);
+  border: 4px solid color-mix(in oklab, var(--primary), transparent 65%);
+  display: grid;
+  place-items: center;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10;
+  box-shadow: 0 0 0 8px rgba(128, 128, 128, 0.1), 0 0 40px 8px var(--glow) inset;
+}
+.central-logo {
+  overflow: hidden;
+}
+/* Make logo image cover the circle neatly */
+.central-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+  display: block;
+}
+/* Disable interactions on central logo */
+.central-logo {
+  pointer-events: none;
+}
+
+.intro-top {
+  position: absolute;
+  left: 50%;
+  top: calc(50% - var(--radius-logo) / 2 - 36px);
+  transform: translateX(-50%);
+  color: var(--fg);
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  font-size: clamp(18px, 2.6vw, 26px);
+  text-wrap: nowrap;
+}
+.intro-banner {
+  position: absolute;
+  top: calc(50% + var(--radius-logo) / 2 + 18px);
+  left: 50%;
+  transform: translateX(-50%);
+  color: var(--muted);
+  text-align: center;
+  width: min(92vw, 780px);
+  line-height: 1.4;
+}
+.intro-banner p {
+  margin: 0;
+  font-size: clamp(12px, 1.8vw, 16px);
+  white-space: normal;
+}
+
+.nav-bubble {
+  position: absolute;
+  width: var(--bubble-size);
+  height: var(--bubble-size);
+  background: linear-gradient(
+    145deg,
+    color-mix(in oklab, var(--bg-soft), white 6%),
+    color-mix(in oklab, var(--bg-soft), black 6%)
+  );
+  border-radius: 50%;
+  border: 4px solid color-mix(in oklab, var(--primary), transparent 65%);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  will-change: transform;
+  transition: transform 0.1s ease, box-shadow 0.3s ease, border-color 0.3s ease; /* change transform timing to adjust responsiveness*/
+  --angle: calc(360deg / var(--bubble-count));
+  --rotation: calc(var(--angle) * var(--i));
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(var(--rotation))
+    translateX(var(--hub-radius)) rotate(calc(-1 * var(--rotation)))
+    translate(var(--dx, 0px), var(--dy, 0px));
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+  appearance: none;
+  -webkit-appearance: none;
+  border-width: 4px;
+}
+@media (max-width: 720px) {
+  :root {
+    /* 50vw is half the screen, subtract half the bubble + a little padding */
+    --hub-radius: calc(50vw - var(--bubble-size) / 2 - 8px);
+  }
+}
+.nav-bubble:hover {
+  box-shadow: 0 0 0 4px var(--glow), 0 12px 28px rgba(0, 0, 0, 0.4);
+  border-color: var(--primary);
+}
+.nav-bubble .orb {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  transition: transform 0.18s ease;
+  will-change: transform;
+}
+.nav-bubble:hover .orb {
+  transform: scale(1.08);
+}
+.nav-bubble-content {
+  display: grid;
+  place-items: center;
+  gap: 6px;
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 0.9rem;
+  letter-spacing: 0.08em;
+  color: var(--fg);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+.nav-bubble-content i {
+  font-size: 1.8rem;
+  color: var(--primary);
+  filter: drop-shadow(0 0 10px var(--glow));
+}
+
+/* ============== CONTENT SECTIONS ============== */
+.content-section {
+  position: absolute;
+  inset: 0;
+  padding: clamp(16px, 4vw, 48px);
+  display: grid;
+  align-content: start;
+  justify-items: center;
+  gap: 24px;
+  text-align: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.5s ease;
+  /* Animated multi-orbit with varied sizes (one large, others smaller) - circles */
+  --section-tint: color-mix(
+    in oklab,
+    var(--primary),
+    transparent var(--section-tint-alpha)
+  );
+  background:
+        /* Large diffuse base circle */ radial-gradient(
+      circle at var(--x0, 50%) var(--y0, 60%),
+      var(--section-tint),
+      transparent var(--r0, 34%)
+    ),
+    /* Medium + two small circles with varied radii */
+      radial-gradient(
+        circle at var(--x1, 26%) var(--y1, 22%),
+        var(--section-tint),
+        transparent var(--r1, 16%)
+      ),
+    radial-gradient(
+      circle at var(--x2, 82%) var(--y2, 30%),
+      var(--section-tint),
+      transparent var(--r2, 14%)
+    ),
+    radial-gradient(
+      circle at var(--x3, 30%) var(--y3, 84%),
+      var(--section-tint),
+      transparent var(--r3, 15%)
+    );
+  background-repeat: no-repeat;
+  /* Independent orbits to avoid synchronized grid-like motion */
+  animation: orbit0 48s ease-in-out infinite alternate,
+    orbit1 31s cubic-bezier(0.36, 0, 0.64, 1) infinite alternate,
+    orbit2 37s ease-in-out infinite alternate,
+    orbit3 29s cubic-bezier(0.36, 0, 0.64, 1) infinite alternate;
+  overflow: auto; /* allow vertical scroll when content is tall */
+}
+.content-section h1 {
+  font-size: clamp(28px, 4vw, 48px);
+  margin: 16px 0 8px;
+}
+.content-section p {
+  max-width: 900px;
+  margin: 0 auto;
+  color: var(--muted);
+}
+
+.back-btn {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 10px 14px;
+  background: var(--bg-soft);
+  color: var(--fg);
+  border-radius: 10px;
+  border: 4px solid color-mix(in oklab, var(--primary), transparent 70%);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+  transition: background 0.25s ease, transform 0.1s ease;
+}
+.back-btn:hover {
+  background: color-mix(in oklab, var(--bg-soft), white 6%);
+}
+.back-btn:active {
+  transform: translateY(1px);
+}
+
+.gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 10px;
+  width: min(1100px, 92%);
+  margin-top: 10px;
+}
+.gallery-item {
+  background: var(--card);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.25);
+}
+.gallery-item img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.gallery-item figcaption {
+  padding: 10px 12px;
+  font-size: 0.95rem;
+  color: var(--muted);
+}
+
+.masonry {
+  columns: 3 260px;
+  column-gap: 16px;
+  width: min(1100px, 92%);
+}
+.masonry img {
+  width: 100%;
+  margin: 0 0 16px;
+  border-radius: 12px;
+  display: block;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.25);
+}
+
+.cards {
+  list-style: none;
+  padding: 0;
+  margin: 10px auto 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  width: min(1100px, 92%);
+}
+.card {
+  background: var(--card);
+  border: 1px solid color-mix(in oklab, var(--primary), transparent 70%);
+  border-radius: 14px;
+  padding: 14px;
+  text-align: left;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+}
+.card img {
+  width: 100%;
+  height: auto;
+  border-radius: 10px;
+  display: block;
+}
+.card h3 {
+  margin: 10px 0 6px;
+}
+.card p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.posts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px;
+  width: min(1100px, 92%);
+}
+.post {
+  background: var(--card);
+  border-radius: 14px;
+  overflow: hidden;
+  text-align: left;
+  border: 1px solid color-mix(in oklab, var(--primary), transparent 70%);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+}
+.post img {
+  width: 100%;
+  display: block;
+}
+.post h3 {
+  margin: 12px 12px 6px;
+}
+.post p {
+  margin: 0 12px 16px;
+  color: var(--muted);
+}
+
+.playlist-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 20px;
+  width: min(1100px, 92%);
+}
+.playlist {
+  background: var(--card);
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid color-mix(in oklab, var(--primary), transparent 70%);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+}
+.playlist img {
+  width: 100%;
+  display: block;
+}
+.playlist h3 {
+  margin: 12px;
+}
+
+/* ============== ACTIVE STATE ============== */
+#universe.section-active .nav-hub {
+  opacity: 0;
+  transform: scale(0.75);
+  pointer-events: none;
+}
+.content-section.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Apply the scale transition to the section's visible children so the section itself
+   doesn't create a containing block for fixed-position descendants (like .back-overlay).
+   Exclude .back-overlay so it remains fixed to the viewport. */
+.content-section > :not(.back-overlay) {
+  transform: scale(0.96);
+  transition: transform 0.5s ease;
+  transform-origin: center center;
+}
+.content-section.active > :not(.back-overlay) {
+  transform: scale(1);
+}
+
+/* Large diffuse base circle orbit */
+@keyframes orbit0 {
+  0% {
+    --x0: 46%;
+    --y0: 42%;
+    --r0: 28%;
+  }
+  35% {
+    --x0: 54%;
+    --y0: 38%;
+    --r0: 36%;
+  }
+  70% {
+    --x0: 58%;
+    --y0: 66%;
+    --r0: 32%;
+  }
+  100% {
+    --x0: 44%;
+    --y0: 62%;
+    --r0: 34%;
+  }
+}
+
+/* Medium circle: gentle clockwise path */
+@keyframes orbit1 {
+  0% {
+    --x1: 22%;
+    --y1: 26%;
+    --r1: 12%;
+  }
+  25% {
+    --x1: 30%;
+    --y1: 18%;
+    --r1: 16%;
+  }
+  50% {
+    --x1: 38%;
+    --y1: 26%;
+    --r1: 14%;
+  }
+  75% {
+    --x1: 28%;
+    --y1: 36%;
+    --r1: 18%;
+  }
+  100% {
+    --x1: 22%;
+    --y1: 26%;
+    --r1: 14%;
+  }
+}
+
+/* Small circle on the right: counter-clockwise, varying radius */
+@keyframes orbit2 {
+  0% {
+    --x2: 84%;
+    --y2: 26%;
+    --r2: 12%;
+  }
+  30% {
+    --x2: 76%;
+    --y2: 38%;
+    --r2: 16%;
+  }
+  60% {
+    --x2: 82%;
+    --y2: 54%;
+    --r2: 10%;
+  }
+  100% {
+    --x2: 90%;
+    --y2: 36%;
+    --r2: 14%;
+  }
+}
+
+/* Lower-left small circle: subtle drift */
+@keyframes orbit3 {
+  0% {
+    --x3: 26%;
+    --y3: 82%;
+    --r3: 11%;
+  }
+  40% {
+    --x3: 36%;
+    --y3: 86%;
+    --r3: 15%;
+  }
+  80% {
+    --x3: 28%;
+    --y3: 90%;
+    --r3: 12%;
+  }
+  100% {
+    --x3: 22%;
+    --y3: 78%;
+    --r3: 9%;
+  }
+}
+
+/* Respect reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .content-section {
+    animation: none !important;
+  }
+}
+
+/* Back overlay for easy return (bottom area) */
+.back-overlay {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: min(20vh, 200px);
+  z-index: 2;
+  cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>')
+      12 12,
+    not-allowed;
+  /* default hidden */
+  opacity: 0;
+  pointer-events: none;
+  background: transparent;
+  transition: opacity 220ms ease;
+}
+/* when a section is active show the overlay */
+.content-section.active .back-overlay {
+  pointer-events: auto;
+  opacity: 1;
+}
+
+/* intensify gradient when hovering the overlay to make it more visible */
+.back-overlay:hover {
+  transition: opacity 220ms ease;
+  background: linear-gradient(
+    to top,
+    rgba(55, 79, 95, 0.185) 0%,
+    rgba(128, 128, 128, 0) 70%,
+    transparent 100%
+  );
+}
+/* Hide bottom-center X on PCs */
+@media (hover: hover) and (pointer: fine) {
+  .back-btn-mobile,
+  .content-section.active .back-btn-mobile {
+    display: none !important; /* fully remove */
+  }
+}
+
+/* Mobile bottom-center X button to close section */
+.back-btn-mobile {
+  position: sticky;
+  /* left: 50%; bottom: 14px; */
+  top: 90%;
+  transform: translateX(-50%);
+  z-index: 3;
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: var(--bg-soft);
+  color: var(--fg);
+  border: 1px solid color-mix(in oklab, var(--primary), transparent 70%);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease, transform 0.15s ease, background 0.25s ease;
+}
+.back-btn-mobile i {
+  font-size: 1.2rem;
+}
+.content-section.active .back-btn-mobile {
+  opacity: 1;
+  pointer-events: auto;
+}
+.back-btn-mobile:active {
+  transform: translateX(-50%) scale(0.98);
+}
+
+/* ============== THEME TOGGLE BUTTON ============== */
+/* .theme-toggle {
+    position: fixed; top: 18px; right: 18px; z-index: 10000;
+    display: grid; grid-auto-flow: column; gap: 8px; place-items: center;
+    padding: 10px 12px; background: var(--bg-soft); color: var(--fg);
+    border: 1px solid color-mix(in oklab, var(--primary), transparent 70%);
+    border-radius: 12px; cursor: pointer;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.25);
+} */
+.theme-toggle {
+  position: fixed;
+  z-index: 10000;
+  top: 14px;
+  right: 14px;
+  width: clamp(44px, 6.5vw, 60px);
+  height: clamp(44px, 6.5vw, 60px);
+  display: grid;
+  place-items: center;
+  background: transparent !important; /* remove background */
+  border: none !important; /* remove border */
+  box-shadow: none !important; /* remove any shadow */
+  color: var(--fg);
+  cursor: pointer;
+  border-radius: 12px; /* keep for focus ring shape */
+}
+
+.theme-toggle:hover {
+  transform: scale(1.06);
+}
+.theme-toggle:active {
+  transform: scale(0.98);
+}
+
+/* Make the icon bigger */
+#theme-icon {
+  font-size: clamp(22px, 3.2vw, 32px);
+  line-height: 1;
+}
+
+/* Place the background toggle to the left of the theme toggle */
+.bg-toggle {
+  right: calc(14px + clamp(44px, 6.5vw, 60px) + 8px);
+}
+
+.settings-toggle {
+  right: calc(14px + (clamp(44px, 6.5vw, 60px) + 8px) * 2);
+}
+
+#bg-icon {
+  font-size: clamp(22px, 3.2vw, 32px);
+  line-height: 1;
+}
+
+/* ensure settings icon matches theme/bg icons */
+#settings-icon {
+  font-size: clamp(22px, 3.2vw, 32px);
+  line-height: 1;
+}
+
+/* Settings popover */
+.settings-popover {
+  position: fixed;
+  z-index: 10000;
+  top: calc(14px + clamp(44px, 6.5vw, 60px) + 8px);
+  right: 14px;
+  width: min(300px, 90vw);
+  padding: 12px;
+  border-radius: 12px;
+  background: color-mix(in oklab, var(--bg-soft), transparent 20%);
+  border: 1px solid color-mix(in oklab, var(--primary), transparent 70%);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  color: var(--fg);
+  display: none;
+}
+.settings-popover .row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0;
+}
+.settings-popover .row.chk {
+  grid-template-columns: 1fr;
+}
+.settings-popover label {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.settings-popover input[type="range"] {
+  width: 100%;
+}
+.settings-popover .actions {
+  display: flex;
+  justify-content: flex-end;
+}
+.settings-popover .mini-btn {
+  background: var(--bg-soft);
+  color: var(--fg);
+  border: 1px solid color-mix(in oklab, var(--primary), transparent 70%);
+  border-radius: 8px;
+  padding: 6px 8px;
+  cursor: pointer;
+}
+.settings-popover .mini-btn:hover {
+  background: color-mix(in oklab, var(--bg-soft), white 6%);
+}
+
+/* helper classes for background modes */
+.bg-mode-fluid #fluidCanvas {
+  display: block;
+}
+.bg-mode-fluid #particleCanvas {
+  display: none;
+}
+.bg-mode-particles #fluidCanvas {
+  display: none;
+}
+.bg-mode-particles #particleCanvas {
+  display: block;
+}
+
+/* Optional accessible focus ring (still no background/border) */
+.theme-toggle:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--primary), transparent 70%);
+}
+.theme-toggle i {
+  font-size: 1.1rem;
+}
+
+/* ============== SECTION COLOR THEMES ============== */
+/* Subtle backdrop color tint per section (using overlay) */
+#projects {
+  --primary: #60a5fa;
+}
+#art {
+  --primary: #f472b6;
+}
+#learning {
+  --primary: #34d399;
+}
+#writing {
+  --primary: #f59e0b;
+}
+#music {
+  --primary: #a78bfa;
+}
+
+/* Increase bubble size on larger screens and ensure readable labels */
+@media (min-width: 900px) {
+  :root {
+    --bubble-size: clamp(110px, 12vw, 140px);
+  }
+  .nav-bubble-content {
+    font-size: 0.9rem;
+  }
+}
+
+/* Responsive tweaks */
+@media (max-width: 720px) {
+  .nav-bubble-content span {
+    display: none;
+  }
+
+  /* Move intro copy away from the crowded center on phones */
+  .intro-top {
+    position: fixed;
+    top: calc(env(safe-area-inset-top, 0px) + 12px);
+    left: 16px;
+    transform: none;
+    z-index: 20;
+    font-size: clamp(16px, 4.6vw, 20px);
+    text-shadow: none;
+    /* soft translucent pill for readability over canvas */
+    background: color-mix(in oklab, var(--bg-soft), transparent 35%);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    padding: 6px 10px;
+    border-radius: 10px;
+    border: 1px solid color-mix(in oklab, var(--primary), transparent 75%);
+    pointer-events: none; /* don’t block taps on bubbles */
+  }
+
+  .intro-banner {
+    position: fixed;
+    top: calc(env(safe-area-inset-top, 0px) + 54px);
+    left: 16px;
+    transform: none;
+    text-align: left;
+    width: calc(100vw - 32px);
+    z-index: 20;
+    pointer-events: none;
+  }
+  .intro-banner p {
+    font-size: clamp(12px, 3.6vw, 14px);
+  }
+}
+
+/* Touch devices: keep native cursor and hide custom cursor/trail */
+@media (pointer: coarse) {
+  body {
+    cursor: auto;
+  }
+  #custom-cursor,
+  #trailCanvas {
+    display: none;
+  }
+  /* Disable the large invisible tap area on touch devices; use the button instead */
+  .back-overlay {
+    display: none !important;
+  }
+}
+
+/* Wobble the inner orb slightly for a lively feel */
+@keyframes orbWobble {
+  0% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-2px) scale(1.01);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+  }
+}
+.nav-bubble .orb {
+  animation: orbWobble 4s ease-in-out infinite;
+  animation-delay: calc(var(--i) * 0.12s);
+}
+
+/* Orbits connection canvas */
+#orbitsCanvas {
+  /* fill its container responsively */
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* hide on smaller screens or touch devices for performance */
+@media (max-width: 500px) {
+  #orbitsCanvas {
+    display: none;
+  }
+}
+
+/* ============== FLOATING FOOTER (appears only while scrolling) ============== */
+#page-footer {
+  position: fixed;
+  left: 50%;
+  transform: translate(-50%, 110%); /* hidden below viewport by default */
+  bottom: 18px;
+  z-index: 10001;
+  transition: transform 360ms cubic-bezier(0.2, 0.9, 0.2, 1), opacity 260ms ease;
+  opacity: 0; /* invisible when not active */
+  pointer-events: none; /* don't block interactions when hidden */
+}
+#page-footer .footer-inner {
+  display: inline-flex;
+  gap: 14px;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: color-mix(in oklab, var(--bg-soft), transparent 40%);
+  color: var(--fg);
+  border: 1px solid color-mix(in oklab, var(--primary), transparent 70%);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+#page-footer.visible {
+  transform: translate(-50%, 0%);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+#page-footer a {
+  color: #2563eb;
+  text-decoration: none;
+}
+
+/* Slightly smaller and centered on narrow screens */
+@media (max-width: 640px) {
+  #page-footer .footer-inner {
+    width: calc(100vw - 40px);
+    justify-content: space-between;
+  }
+}
